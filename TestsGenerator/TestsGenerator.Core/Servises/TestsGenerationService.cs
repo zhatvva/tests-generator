@@ -13,9 +13,7 @@ namespace TestsGenerator.Core.Servises
         {
             var tree = CSharpSyntaxTree.ParseText(file);
             var root = tree.GetCompilationUnitRoot();
-            var classes = root.DescendantNodes()
-                .OfType<ClassDeclarationSyntax>()
-                .ToList();
+            var classes = root.GetClasses();
             var result = new List<GenerationResult>(classes.Count);
             
             foreach (var c in classes)
