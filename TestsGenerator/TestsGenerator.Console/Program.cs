@@ -17,7 +17,7 @@ namespace HelloWorld
             _value = value;
         }
 
-        public Program(int value, string bebra) : this(value) 
+        public Program(IBebra bebra, int value, string bebra) : this(value) 
         {
             Console.WriteLine(bebra);
         }
@@ -34,5 +34,6 @@ namespace HelloWorld
     }
 }";
 
-generator.Generate(programText);
+var result = await generator.Generate(programText);
+Console.WriteLine(result.First().Content);
 Console.ReadLine();
