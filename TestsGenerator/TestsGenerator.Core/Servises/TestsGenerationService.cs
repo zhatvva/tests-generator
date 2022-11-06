@@ -93,18 +93,21 @@ namespace TestsGenerator.Core.Servises
             var testClassObjectName = $"_test{className}";
             var initializatons = new List<StatementSyntax>();
             var constructorArguments = new List<SyntaxNodeOrToken>();
-
-            foreach (var parameter in constructor.ParameterList.Parameters)
+            
+            if (constructor != null && constructor.ParameterList.Parameters.Count > 0)
             {
-                var section = GetParameterCreationSection(parameter);
-                initializatons.Add(section.InitializationExpression);
+                foreach (var parameter in constructor.ParameterList.Parameters)
+                {
+                    var section = GetParameterCreationSection(parameter);
+                    initializatons.Add(section.InitializationExpression);
 
-                constructorArguments.Add(section.Argument);
-                constructorArguments.Add(SyntaxFactory.Token(SyntaxKind.CommaToken));
+                    constructorArguments.Add(section.Argument);
+                    constructorArguments.Add(SyntaxFactory.Token(SyntaxKind.CommaToken));
+                }
+
+                constructorArguments.RemoveAt(constructorArguments.Count - 1);
             }
-
-            constructorArguments.RemoveAt(constructorArguments.Count - 1);
-
+            
             initializatons.Add(
                 SyntaxFactory.ExpressionStatement(
                     SyntaxFactory.AssignmentExpression(
@@ -155,16 +158,19 @@ namespace TestsGenerator.Core.Servises
             var actResultVariableName = "actual";
             var expectedVariableName = "expected";
 
-            foreach (var parameter in method.ParameterList.Parameters)
+            if (method.ParameterList.Parameters.Count > 0)
             {
-                var section = GetParameterCreationSection(parameter);
-                statements.Add(section.InitializationExpression);
+                foreach (var parameter in method.ParameterList.Parameters)
+                {
+                    var section = GetParameterCreationSection(parameter);
+                    statements.Add(section.InitializationExpression);
 
-                methodArguments.Add(section.Argument);
-                methodArguments.Add(SyntaxFactory.Token(SyntaxKind.CommaToken));
+                    methodArguments.Add(section.Argument);
+                    methodArguments.Add(SyntaxFactory.Token(SyntaxKind.CommaToken));
+                }
+
+                methodArguments.RemoveAt(methodArguments.Count - 1);
             }
-
-            methodArguments.RemoveAt(methodArguments.Count - 1);
 
             if (method.ReturnType is PredefinedTypeSyntax predifinedReturnType && predifinedReturnType.Keyword.ValueText == "void")  
             {

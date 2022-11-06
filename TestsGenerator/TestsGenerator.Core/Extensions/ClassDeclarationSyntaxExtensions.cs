@@ -8,7 +8,7 @@ namespace TestsGenerator.Core.Extensions
             syntax.Members
                 .OfType<ConstructorDeclarationSyntax>()
                 .OrderByDescending(c => c.ParameterList.Parameters.Count)
-                .First();
+                .FirstOrDefault();
 
         public static List<MethodDeclarationSyntax> GetPublicMethods(this ClassDeclarationSyntax syntax) =>
             syntax.Members
