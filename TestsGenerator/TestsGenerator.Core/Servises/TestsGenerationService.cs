@@ -62,23 +62,29 @@ namespace TestsGenerator.Core.Servises
             }
             else
             {
-                initializationExpression = SyntaxFactory.LocalDeclarationStatement(
-                    SyntaxFactory.VariableDeclaration(
-                        SyntaxFactory.IdentifierName(type))
-                    .WithVariables(
-                        SyntaxFactory.SingletonSeparatedList(
-                            SyntaxFactory.VariableDeclarator(
-                                SyntaxFactory.Identifier(objectName))
-                            .WithInitializer(
-                                SyntaxFactory.EqualsValueClause(
-                                    SyntaxFactory.LiteralExpression(
-                                        SyntaxKind.DefaultLiteralExpression,
-                                        SyntaxFactory.Token(SyntaxKind.DefaultKeyword)))))));
-
+                initializationExpression = GetLocalDeclarationStatement(type, objectName);
                 constructorArgument = SyntaxFactory.Argument(SyntaxFactory.IdentifierName(objectName));
             }
 
             return (constructorArgument, initializationExpression);
+        }
+
+        private static LocalDeclarationStatementSyntax GetLocalDeclarationStatement(string type, string variableName)
+        {
+            var initializationExpression = SyntaxFactory.LocalDeclarationStatement(
+                SyntaxFactory.VariableDeclaration(
+                    SyntaxFactory.IdentifierName(type))
+                .WithVariables(
+                    SyntaxFactory.SingletonSeparatedList(
+                        SyntaxFactory.VariableDeclarator(
+                            SyntaxFactory.Identifier(variableName))
+                        .WithInitializer(
+                            SyntaxFactory.EqualsValueClause(
+                                SyntaxFactory.LiteralExpression(
+                                    SyntaxKind.DefaultLiteralExpression,
+                                    SyntaxFactory.Token(SyntaxKind.DefaultKeyword)))))));
+
+            return initializationExpression;
         }
 
         private static (string TestClassVariableName, List<MemberDeclarationSyntax> SetupSection) GetSetupSection(
@@ -146,7 +152,8 @@ namespace TestsGenerator.Core.Servises
         {
             var statements = new List<StatementSyntax>();
             var methodArguments = new List<SyntaxNodeOrToken>();
-            var actResultVariableName = "result";
+            var actResultVariableName = "actual";
+            var expectedVariableName = "expected";
 
             foreach (var parameter in method.ParameterList.Parameters)
             {
@@ -187,25 +194,54 @@ namespace TestsGenerator.Core.Servises
                 }
 
                 var actStatement = SyntaxFactory.LocalDeclarationStatement(
-                SyntaxFactory.VariableDeclaration(
-                    SyntaxFactory.IdentifierName(returnTypeName))
-                .WithVariables(
-                    SyntaxFactory.SingletonSeparatedList(
-                        SyntaxFactory.VariableDeclarator(
-                            SyntaxFactory.Identifier(actResultVariableName))
-                        .WithInitializer(
-                            SyntaxFactory.EqualsValueClause(
-                                SyntaxFactory.InvocationExpression(
-                                    SyntaxFactory.MemberAccessExpression(
-                                        SyntaxKind.SimpleMemberAccessExpression,
-                                        SyntaxFactory.IdentifierName(testClassVariableName),
-                                        SyntaxFactory.IdentifierName(method.Identifier.ValueText)))
-                                .WithArgumentList(
-                                    SyntaxFactory.ArgumentList(
-                                        SyntaxFactory.SeparatedList<ArgumentSyntax>(
-                                            new SyntaxNodeOrTokenList(methodArguments)))))))));
-
+                    SyntaxFactory.VariableDeclaration(
+                        SyntaxFactory.IdentifierName(returnTypeName))
+                    .WithVariables(
+                        SyntaxFactory.SingletonSeparatedList(
+                            SyntaxFactory.VariableDeclarator(
+                                SyntaxFactory.Identifier(actResultVariableName))
+                            .WithInitializer(
+                                SyntaxFactory.EqualsValueClause(
+                                    SyntaxFactory.InvocationExpression(
+                                        SyntaxFactory.MemberAccessExpression(
+                                            SyntaxKind.SimpleMemberAccessExpression,
+                                            SyntaxFactory.IdentifierName(testClassVariableName),
+                                            SyntaxFactory.IdentifierName(method.Identifier.ValueText)))
+                                    .WithArgumentList(
+                                        SyntaxFactory.ArgumentList(
+                                            SyntaxFactory.SeparatedList<ArgumentSyntax>(
+                                                new SyntaxNodeOrTokenList(methodArguments)))))))));
                 statements.Add(actStatement);
+
+                var expectedVariableDeclarationStatement = GetLocalDeclarationStatement(returnTypeName, expectedVariableName);
+                statements.Add(expectedVariableDeclarationStatement);
+
+                var resultAssertionStatement = SyntaxFactory.ExpressionStatement(
+                    SyntaxFactory.InvocationExpression(
+                        SyntaxFactory.MemberAccessExpression(
+                            SyntaxKind.SimpleMemberAccessExpression,
+                            SyntaxFactory.IdentifierName("Assert"),
+                            SyntaxFactory.IdentifierName("That")))
+                    .WithArgumentList(
+                        SyntaxFactory.ArgumentList(
+                            SyntaxFactory.SeparatedList<ArgumentSyntax>(
+                                new SyntaxNodeOrToken[]{
+                                    SyntaxFactory.Argument(
+                                        SyntaxFactory.IdentifierName(actResultVariableName)),
+                                    SyntaxFactory.Token(SyntaxKind.CommaToken),
+                                    SyntaxFactory.Argument(
+                                        SyntaxFactory.InvocationExpression(
+                                            SyntaxFactory.MemberAccessExpression(
+                                                SyntaxKind.SimpleMemberAccessExpression,
+                                                SyntaxFactory.IdentifierName("Is"),
+                                                SyntaxFactory.IdentifierName("EqualTo")))
+                                        .WithArgumentList(
+                                            SyntaxFactory.ArgumentList(
+                                                SyntaxFactory.SingletonSeparatedList<ArgumentSyntax>(
+                                                    SyntaxFactory.Argument(
+                                                        SyntaxFactory.IdentifierName(expectedVariableName))))))}))));
+
+                statements.Add(resultAssertionStatement);
             }
 
             var assertFailStatement = SyntaxFactory.ExpressionStatement(
@@ -216,7 +252,7 @@ namespace TestsGenerator.Core.Servises
                         SyntaxFactory.IdentifierName("Fail")))
                 .WithArgumentList(
                     SyntaxFactory.ArgumentList(
-                        SyntaxFactory.SingletonSeparatedList<ArgumentSyntax>(
+                        SyntaxFactory.SingletonSeparatedList(
                             SyntaxFactory.Argument(
                                 SyntaxFactory.LiteralExpression(
                                     SyntaxKind.StringLiteralExpression,
