@@ -31,7 +31,17 @@ namespace HelloWorld
             Console.WriteLine(""Hello, World!"");
         }
 
-        public void DoBebra(string toPrint)
+        public Program DoBebra(string toPrint)
+        {
+            Console.WriteLine(""Hello, World!"");
+        }
+
+        public string DoBebra(IBebra bebra, string toPrint)
+        {
+            Console.WriteLine(""Hello, World!"");
+        }
+
+        public void DoBebra(IBebra bebra, string toPrint)
         {
             Console.WriteLine(""Hello, World!"");
         }

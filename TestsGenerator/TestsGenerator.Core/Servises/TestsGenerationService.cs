@@ -9,8 +9,6 @@ namespace TestsGenerator.Core.Servises
 {
     public class TestsGenerationService : ITestsGenerator
     {
-        private readonly List<string> _methodNames = new();
-        
         public Task<List<GenerationResult>> Generate(string file)
         {
             var tree = CSharpSyntaxTree.ParseText(file);
@@ -27,12 +25,12 @@ namespace TestsGenerator.Core.Servises
             return Task.FromResult(result);
         }
 
-        private static (ArgumentSyntax Argument, StatementSyntax InitializationExpression) GetParameterInitializationSection(
+        private static (ArgumentSyntax Argument, StatementSyntax InitializationExpression) GetParameterCreationSection(
             ParameterSyntax parameter)
         {
             StatementSyntax initializationExpression;
             ArgumentSyntax constructorArgument;
-            var objectName = $"{parameter.Identifier.Text}Object";
+            var objectName = $"{parameter.Identifier.Text}Fake";
             var type = parameter.Type.ToString();
             
             if (type.StartsWith('I'))
@@ -52,7 +50,7 @@ namespace TestsGenerator.Core.Servises
                                         .WithTypeArgumentList(
                                             SyntaxFactory.TypeArgumentList(
                                                 SyntaxFactory.SingletonSeparatedList<TypeSyntax>(
-                                                    SyntaxFactory.IdentifierName(parameter.Identifier.Text)))))
+                                                    SyntaxFactory.IdentifierName(type)))))
                                     .WithArgumentList(
                                         SyntaxFactory.ArgumentList()))))));
 
@@ -86,13 +84,13 @@ namespace TestsGenerator.Core.Servises
         private static (string TestClassVariableName, List<MemberDeclarationSyntax> SetupSection) GetSetupSection(
             string className, ConstructorDeclarationSyntax constructor)
         {
-            var testClassObjectName = $"_test{className}Object";
+            var testClassObjectName = $"_test{className}";
             var initializatons = new List<StatementSyntax>();
             var constructorArguments = new List<SyntaxNodeOrToken>();
 
             foreach (var parameter in constructor.ParameterList.Parameters)
             {
-                var section = GetParameterInitializationSection(parameter);
+                var section = GetParameterCreationSection(parameter);
                 initializatons.Add(section.InitializationExpression);
 
                 constructorArguments.Add(section.Argument);
@@ -143,14 +141,16 @@ namespace TestsGenerator.Core.Servises
             return (testClassObjectName, setup);
         }
 
-        private static MemberDeclarationSyntax GetMethodSection(string variableName, MethodDeclarationSyntax method)
+        private static MemberDeclarationSyntax GetMethodSection(string testMethodName, string testClassVariableName,
+            MethodDeclarationSyntax method)
         {
             var statements = new List<StatementSyntax>();
             var methodArguments = new List<SyntaxNodeOrToken>();
+            var actResultVariableName = "result";
 
             foreach (var parameter in method.ParameterList.Parameters)
             {
-                var section = GetParameterInitializationSection(parameter);
+                var section = GetParameterCreationSection(parameter);
                 statements.Add(section.InitializationExpression);
 
                 methodArguments.Add(section.Argument);
@@ -159,10 +159,75 @@ namespace TestsGenerator.Core.Servises
 
             methodArguments.RemoveAt(methodArguments.Count - 1);
 
+            if (method.ReturnType is PredefinedTypeSyntax predifinedReturnType && predifinedReturnType.Keyword.ValueText == "void")  
+            {
+                var actStatement = SyntaxFactory.ExpressionStatement(
+                    SyntaxFactory.InvocationExpression(
+                        SyntaxFactory.MemberAccessExpression(
+                            SyntaxKind.SimpleMemberAccessExpression,
+                            SyntaxFactory.IdentifierName(testClassVariableName),
+                            SyntaxFactory.IdentifierName(method.Identifier.ValueText)))
+                    .WithArgumentList(
+                        SyntaxFactory.ArgumentList(
+                            SyntaxFactory.SeparatedList<ArgumentSyntax>(
+                                new SyntaxNodeOrTokenList(methodArguments)))));
+
+                statements.Add(actStatement);
+            }
+            else
+            {
+                string returnTypeName;
+                if (method.ReturnType is PredefinedTypeSyntax predefinedTypeSyntax)
+                {
+                    returnTypeName = predefinedTypeSyntax.Keyword.ValueText;
+                }
+                else
+                {
+                    returnTypeName = ((IdentifierNameSyntax)method.ReturnType).Identifier.ValueText;
+                }
+
+                var actStatement = SyntaxFactory.LocalDeclarationStatement(
+                SyntaxFactory.VariableDeclaration(
+                    SyntaxFactory.IdentifierName(returnTypeName))
+                .WithVariables(
+                    SyntaxFactory.SingletonSeparatedList(
+                        SyntaxFactory.VariableDeclarator(
+                            SyntaxFactory.Identifier(actResultVariableName))
+                        .WithInitializer(
+                            SyntaxFactory.EqualsValueClause(
+                                SyntaxFactory.InvocationExpression(
+                                    SyntaxFactory.MemberAccessExpression(
+                                        SyntaxKind.SimpleMemberAccessExpression,
+                                        SyntaxFactory.IdentifierName(testClassVariableName),
+                                        SyntaxFactory.IdentifierName(method.Identifier.ValueText)))
+                                .WithArgumentList(
+                                    SyntaxFactory.ArgumentList(
+                                        SyntaxFactory.SeparatedList<ArgumentSyntax>(
+                                            new SyntaxNodeOrTokenList(methodArguments)))))))));
+
+                statements.Add(actStatement);
+            }
+
+            var assertFailStatement = SyntaxFactory.ExpressionStatement(
+                SyntaxFactory.InvocationExpression(
+                    SyntaxFactory.MemberAccessExpression(
+                        SyntaxKind.SimpleMemberAccessExpression,
+                        SyntaxFactory.IdentifierName("Assert"),
+                        SyntaxFactory.IdentifierName("Fail")))
+                .WithArgumentList(
+                    SyntaxFactory.ArgumentList(
+                        SyntaxFactory.SingletonSeparatedList<ArgumentSyntax>(
+                            SyntaxFactory.Argument(
+                                SyntaxFactory.LiteralExpression(
+                                    SyntaxKind.StringLiteralExpression,
+                                    SyntaxFactory.Literal("autogenerated")))))));
+
+            statements.Add(assertFailStatement);
+
             var methodDeclaration = SyntaxFactory.MethodDeclaration(
                 SyntaxFactory.PredefinedType(
                     SyntaxFactory.Token(SyntaxKind.VoidKeyword)),
-                SyntaxFactory.Identifier($"{method.Identifier.ValueText}Test"))
+                SyntaxFactory.Identifier(testMethodName))
             .WithAttributeLists(
                 SyntaxFactory.SingletonList(
                     SyntaxFactory.AttributeList(
@@ -178,10 +243,12 @@ namespace TestsGenerator.Core.Servises
         private static List<MemberDeclarationSyntax> GetMethodsSection(string testClassVariableName, List<MethodDeclarationSyntax> methods)
         {
             var members = new List<MemberDeclarationSyntax>(methods.Count);
+            var generator = new TestMethodNameGenerator(methods);
 
             foreach (var method in methods)
             {
-                var methodSection = GetMethodSection(testClassVariableName, method);
+                var methodName = generator.GetTestMethodName(method.Identifier.ValueText);
+                var methodSection = GetMethodSection(methodName, testClassVariableName, method);
                 members.Add(methodSection);
             }
 
