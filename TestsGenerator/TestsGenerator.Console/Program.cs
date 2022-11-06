@@ -12,12 +12,16 @@ namespace HelloWorld
     class Program
     {
         private readonly int _value;
+        private readonly Program _program;
         public Program(int value)
         {
             _value = value;
+            IBebra bebra = new Mock<IBebra>();
+            int value = default;
+            _program = new Program(bebra, value);
         }
 
-        public Program(IBebra bebra, int value, string bebra) : this(value) 
+        public Program(IBebra bebra, int value) : this(value) 
         {
             Console.WriteLine(bebra);
         }
@@ -27,7 +31,7 @@ namespace HelloWorld
             Console.WriteLine(""Hello, World!"");
         }
 
-        public void DoBebra()
+        public void DoBebra(string toPrint)
         {
             Console.WriteLine(""Hello, World!"");
         }

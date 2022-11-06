@@ -9,6 +9,8 @@ namespace TestsGenerator.Core.Servises
 {
     public class TestsGenerationService : ITestsGenerator
     {
+        private readonly List<string> _methodNames = new();
+        
         public Task<List<GenerationResult>> Generate(string file)
         {
             var tree = CSharpSyntaxTree.ParseText(file);
@@ -25,7 +27,7 @@ namespace TestsGenerator.Core.Servises
             return Task.FromResult(result);
         }
 
-        private static (ArgumentSyntax ConstructorArgument, StatementSyntax InitializationExpression) GetParameterInitializationSection(
+        private static (ArgumentSyntax Argument, StatementSyntax InitializationExpression) GetParameterInitializationSection(
             ParameterSyntax parameter)
         {
             StatementSyntax initializationExpression;
@@ -81,19 +83,23 @@ namespace TestsGenerator.Core.Servises
             return (constructorArgument, initializationExpression);
         }
 
-        private static (string TestClassObjectName, List<MemberDeclarationSyntax> SetupSection) GetSetupSection(
+        private static (string TestClassVariableName, List<MemberDeclarationSyntax> SetupSection) GetSetupSection(
             string className, ConstructorDeclarationSyntax constructor)
         {
             var testClassObjectName = $"_test{className}Object";
             var initializatons = new List<StatementSyntax>();
-            var constructorArguments = new SeparatedSyntaxList<ArgumentSyntax>();
+            var constructorArguments = new List<SyntaxNodeOrToken>();
 
             foreach (var parameter in constructor.ParameterList.Parameters)
             {
                 var section = GetParameterInitializationSection(parameter);
                 initializatons.Add(section.InitializationExpression);
-                constructorArguments.Add(section.ConstructorArgument);
+
+                constructorArguments.Add(section.Argument);
+                constructorArguments.Add(SyntaxFactory.Token(SyntaxKind.CommaToken));
             }
+
+            constructorArguments.RemoveAt(constructorArguments.Count - 1);
 
             initializatons.Add(
                 SyntaxFactory.ExpressionStatement(
@@ -102,7 +108,10 @@ namespace TestsGenerator.Core.Servises
                         SyntaxFactory.IdentifierName(testClassObjectName),
                         SyntaxFactory.ObjectCreationExpression(
                             SyntaxFactory.IdentifierName(className))
-                        .WithArgumentList(SyntaxFactory.ArgumentList(constructorArguments)))));
+                        .WithArgumentList(
+                            SyntaxFactory.ArgumentList(
+                                SyntaxFactory.SeparatedList<ArgumentSyntax>(
+                                    new SyntaxNodeOrTokenList(constructorArguments)))))));
 
             var setup = new List<MemberDeclarationSyntax>()
             {
@@ -134,9 +143,49 @@ namespace TestsGenerator.Core.Servises
             return (testClassObjectName, setup);
         }
 
-        private static List<MemberDeclarationSyntax> GetMethodSection(string testClassObjectName, List<MethodDeclarationSyntax> methods)
+        private static MemberDeclarationSyntax GetMethodSection(string variableName, MethodDeclarationSyntax method)
         {
-            throw new NotImplementedException();
+            var statements = new List<StatementSyntax>();
+            var methodArguments = new List<SyntaxNodeOrToken>();
+
+            foreach (var parameter in method.ParameterList.Parameters)
+            {
+                var section = GetParameterInitializationSection(parameter);
+                statements.Add(section.InitializationExpression);
+
+                methodArguments.Add(section.Argument);
+                methodArguments.Add(SyntaxFactory.Token(SyntaxKind.CommaToken));
+            }
+
+            methodArguments.RemoveAt(methodArguments.Count - 1);
+
+            var methodDeclaration = SyntaxFactory.MethodDeclaration(
+                SyntaxFactory.PredefinedType(
+                    SyntaxFactory.Token(SyntaxKind.VoidKeyword)),
+                SyntaxFactory.Identifier($"{method.Identifier.ValueText}Test"))
+            .WithAttributeLists(
+                SyntaxFactory.SingletonList(
+                    SyntaxFactory.AttributeList(
+                        SyntaxFactory.SingletonSeparatedList(
+                            SyntaxFactory.Attribute(
+                                SyntaxFactory.IdentifierName("Test"))))))
+            .WithModifiers(SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.PublicKeyword)))
+            .WithBody(SyntaxFactory.Block(statements));
+
+            return methodDeclaration;
+        }
+
+        private static List<MemberDeclarationSyntax> GetMethodsSection(string testClassVariableName, List<MethodDeclarationSyntax> methods)
+        {
+            var members = new List<MemberDeclarationSyntax>(methods.Count);
+
+            foreach (var method in methods)
+            {
+                var methodSection = GetMethodSection(testClassVariableName, method);
+                members.Add(methodSection);
+            }
+
+            return members;
         }
         
         private static GenerationResult GenerateTestsForSingleClass(ClassDeclarationSyntax syntax)
@@ -146,11 +195,10 @@ namespace TestsGenerator.Core.Servises
             var methods = syntax.GetPublicMethods();
 
             var setupSection = GetSetupSection(className, constructor);
-            //var methodSecton = GetMethodSection(setupSection.TestClassObjectName, methods);
-            var methodSecton = new List<MemberDeclarationSyntax>();
+            var methodsSecton = GetMethodsSection(setupSection.TestClassVariableName, methods);
 
             var members = new List<MemberDeclarationSyntax>(setupSection.SetupSection);
-            members.AddRange(methodSecton);
+            members.AddRange(methodsSecton);
 
             var tree = CSharpSyntaxTree.Create(
                 SyntaxFactory.CompilationUnit()
