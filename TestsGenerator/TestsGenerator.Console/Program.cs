@@ -4,9 +4,9 @@ using TestsGenerator.Core.Servises;
 
 var newArgs = new string[]
 {
-    "D:\\Labs\\SPP\\lab2\\Faker",
+    "D:\\sunmait-projects\\career-day\\back-end",
     "D:\\GenerationResult",
-    "10", "10", "10"
+    "1", "1", "1"
 };
 
 args = newArgs;

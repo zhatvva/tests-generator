@@ -194,9 +194,13 @@ namespace TestsGenerator.Core.Servises
                 {
                     returnTypeName = predefinedTypeSyntax.Keyword.ValueText;
                 }
+                else if (method.ReturnType is IdentifierNameSyntax identifierNameSyntax)
+                {
+                    returnTypeName = identifierNameSyntax.Identifier.ValueText;
+                }
                 else
                 {
-                    returnTypeName = ((IdentifierNameSyntax)method.ReturnType).Identifier.ValueText;
+                    returnTypeName = "object";
                 }
 
                 var actStatement = SyntaxFactory.LocalDeclarationStatement(
