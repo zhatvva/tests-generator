@@ -48,7 +48,7 @@ namespace TestsGenerator.Console
 
             var generateTests = new TransformManyBlock<string, GenerationResult>
             (
-                async data => await generator.Generate(data),
+                data => generator.Generate(data),
                 new ExecutionDataflowBlockOptions
                 {
                     MaxDegreeOfParallelism = _maxFilesParsingParallel

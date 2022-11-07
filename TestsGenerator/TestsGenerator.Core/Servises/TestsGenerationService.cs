@@ -9,7 +9,7 @@ namespace TestsGenerator.Core.Servises
 {
     public class TestsGenerationService : ITestsGenerator
     {
-        public Task<List<GenerationResult>> Generate(string file)
+        public List<GenerationResult> Generate(string file)
         {
             var tree = CSharpSyntaxTree.ParseText(file);
             var root = tree.GetCompilationUnitRoot();
@@ -22,7 +22,7 @@ namespace TestsGenerator.Core.Servises
                 result.Add(tests);
             }
 
-            return Task.FromResult(result);
+            return result;
         }
 
         private static (ArgumentSyntax Argument, StatementSyntax InitializationExpression) GetParameterCreationSection(

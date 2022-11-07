@@ -4,6 +4,6 @@ namespace TestsGenerator.Core.Interfaces
 {
     public interface ITestsGenerator
     {
-        public Task<List<GenerationResult>> Generate(string file);
+        public List<GenerationResult> Generate(string file);
     }
 }
