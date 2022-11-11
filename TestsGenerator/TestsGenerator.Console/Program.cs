@@ -50,6 +50,30 @@ try
     var pipeline = new Pipeline(outputDirectory, maxFilesReadingParallel, maxFilesWritingParallel, maxFilesParsingParallel);
     var entryPoint = pipeline.GeneratePipeline(generator);
 
+    var source = @"using System;
+
+            namespace MyCode
+            {
+                public class MyClass
+                {
+                    private readonly string _name;
+                    private readonly int _age;
+
+                    public MyClass(string name, int age)
+                    {
+                        _name = name;
+                        _age = age;
+                    }
+
+                    public string GetName() => _name;
+
+                    public int GetAge() => _age;
+                }
+            }";
+
+    var result = generator.Generate(source);
+    Console.WriteLine(result.First().Content);
+
     AddSubDirectoryToQuery(inputDirectory, entryPoint);
     entryPoint.Complete();
     await entryPoint.Completion;
