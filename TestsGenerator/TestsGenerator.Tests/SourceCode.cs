@@ -60,5 +60,27 @@
                     public ILol GetLol() => _lol;
                 }
             }";
+
+        public const string ClassWithFunction = 
+            @"using System;
+
+            namespace MyCode
+            {
+                public class MyClass
+                {
+                    public string LolToString(ILol lol) => lol.ToString();
+                }
+            }";
+
+        public const string ClassWithProcedure = 
+            @"using System;
+
+            namespace MyCode
+            {
+                public class MyClass
+                {
+                    public void PrintLol(ILol lol) => Console.WriteLine(lol.ToString());
+                }
+            }";
     }
 }
